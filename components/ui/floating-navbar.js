@@ -95,7 +95,7 @@ export const FloatingNav = ({ className }) => {
             <UtensilsCrossed className="w-4 h-4" />
           </motion.div>
           <span className="font-extrabold text-neutral-855 dark:text-zinc-200 text-base tracking-tight font-sans transition-colors duration-300 group-hover:text-[#c85a32] dark:group-hover:text-orange-400">
-            Savoury Circle
+            SavoryCircle
           </span>
         </Link>
 
