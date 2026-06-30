@@ -1,6 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { FloatingNav } from "@/components/ui/floating-navbar";
 import { RecipeCard } from "@/components/recipe-card";
@@ -98,8 +98,10 @@ const MOCK_RECIPES = [
   }
 ];
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams ? searchParams.get("tab") : null;
 
   // Auth states
   const [user, setUser] = useState(null);
@@ -110,51 +112,17 @@ export default function ProfilePage() {
   const [myRecipes, setMyRecipes] = useState([]);
   const [savedRecipes, setSavedRecipes] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [activeTab, setActiveTab] = useState("my-recipes"); // or "saved-recipes"
+  const [activeTab, setActiveTab] = useState(tabParam === "saved-recipes" ? "saved-recipes" : "my-recipes");
+  const [prevTabParam, setPrevTabParam] = useState(tabParam);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      setLoadingUser(false);
-      
-      if (currentUser) {
-        // Fetch user metadata (e.g. member since)
-        try {
-          const userDocRef = doc(db, "users", currentUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            const data = userDocSnap.data();
-            if (data.createdAt) {
-              const date = new Date(data.createdAt);
-              setMemberSince(date.toLocaleDateString("en-US", {
-                month: "long",
-                year: "numeric"
-              }));
-            } else {
-              setMemberSince("Home Cook");
-            }
-          }
-        } catch (err) {
-          console.error("Error fetching user document details:", err);
-          setMemberSince("Home Cook");
-        }
-
-        // Fetch user data grids
-        await fetchUserData(currentUser.uid);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Redirect to login if not logged in
-  useEffect(() => {
-    if (!loadingUser && !user) {
-      router.push("/login");
+  if (tabParam !== prevTabParam) {
+    setPrevTabParam(tabParam);
+    if (tabParam === "saved-recipes" || tabParam === "my-recipes") {
+      setActiveTab(tabParam);
     }
-  }, [user, loadingUser]);
+  }
 
-  const fetchUserData = async (userId) => {
+  async function fetchUserData(userId) {
     setLoadingData(true);
     try {
       // 1. Fetch user published recipes
@@ -205,7 +173,49 @@ export default function ProfilePage() {
     } finally {
       setLoadingData(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      setLoadingUser(false);
+      
+      if (currentUser) {
+        // Fetch user metadata (e.g. member since)
+        try {
+          const userDocRef = doc(db, "users", currentUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const data = userDocSnap.data();
+            if (data.createdAt) {
+              const date = new Date(data.createdAt);
+              setMemberSince(date.toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric"
+              }));
+            } else {
+              setMemberSince("Home Cook");
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching user document details:", err);
+          setMemberSince("Home Cook");
+        }
+
+        // Fetch user data grids
+        await fetchUserData(currentUser.uid);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Redirect to login if not logged in
+  useEffect(() => {
+    if (!loadingUser && !user) {
+      router.push("/login");
+    }
+  }, [user, loadingUser]);
 
   if (loadingUser || (!user && loadingUser)) {
     return (
@@ -331,7 +341,7 @@ export default function ProfilePage() {
                   No Published Recipes
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-zinc-400 mt-2 font-sans leading-relaxed">
-                  You haven't shared any of your own recipes yet. Tap the button below to publish your first culinary masterpiece!
+                  You haven&apos;t shared any of your own recipes yet. Tap the button below to publish your first culinary masterpiece!
                 </p>
                 <button
                   onClick={() => router.push("/add-recipe")}
@@ -357,7 +367,7 @@ export default function ProfilePage() {
                 No Saved Recipes
               </h3>
               <p className="text-xs text-neutral-500 dark:text-zinc-400 mt-2 font-sans leading-relaxed">
-                You haven't bookmarked any recipes yet. Browse our delicious catalog and save items to find them easily here.
+                You haven&apos;t bookmarked any recipes yet. Browse our delicious catalog and save items to find them easily here.
               </p>
               <button
                 onClick={() => router.push("/recipes")}
@@ -414,5 +424,17 @@ export default function ProfilePage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center font-sans">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      </div>
+    }>
+      <ProfilePageContent />
+    </Suspense>
   );
 }

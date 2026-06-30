@@ -5,7 +5,7 @@ import { FloatingNav } from "@/components/ui/floating-navbar";
 import { RecipeCard } from "@/components/recipe-card";
 import { NAV_ITEMS } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, Filter, BookOpen, Sparkles } from "lucide-react";
+import { Sparkles, Search, X, BookOpen, ChevronDown } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
@@ -99,8 +99,39 @@ const FILTER_CATEGORIES = [
 function RecipesPageContent() {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [sortBy, setSortBy] = useState("latest");
+  const categoryParam = searchParams.get("category");
+  const getInitialCategory = () => {
+    if (!categoryParam) return "All";
+    const lowerCat = categoryParam.toLowerCase();
+    if (lowerCat.includes("gourmet")) return "Gourmet";
+    if (lowerCat.includes("baking")) return "Baking";
+    if (lowerCat.includes("vegan") || lowerCat.includes("plant")) return "Vegan";
+    if (lowerCat.includes("healthy")) return "Healthy";
+    if (lowerCat.includes("dessert") || lowerCat.includes("treat")) return "Desserts";
+    if (lowerCat.includes("quick") || lowerCat.includes("easy")) return "Quick & Easy";
+    return "All";
+  };
+
+  const [selectedCategory, setSelectedCategory] = useState(getInitialCategory);
+  const [prevCategoryParam, setPrevCategoryParam] = useState(categoryParam);
   const [dbRecipes, setDbRecipes] = useState([]);
+
+  if (categoryParam !== prevCategoryParam) {
+    setPrevCategoryParam(categoryParam);
+    if (categoryParam) {
+      const lowerCat = categoryParam.toLowerCase();
+      if (lowerCat.includes("gourmet")) setSelectedCategory("Gourmet");
+      else if (lowerCat.includes("baking")) setSelectedCategory("Baking");
+      else if (lowerCat.includes("vegan") || lowerCat.includes("plant")) setSelectedCategory("Vegan");
+      else if (lowerCat.includes("healthy")) setSelectedCategory("Healthy");
+      else if (lowerCat.includes("dessert") || lowerCat.includes("treat")) setSelectedCategory("Desserts");
+      else if (lowerCat.includes("quick") || lowerCat.includes("easy")) setSelectedCategory("Quick & Easy");
+      else setSelectedCategory("All");
+    } else {
+      setSelectedCategory("All");
+    }
+  }
 
   useEffect(() => {
     const fetchRecipes = async () => {
@@ -118,28 +149,15 @@ function RecipesPageContent() {
     fetchRecipes();
   }, []);
 
-  useEffect(() => {
-    const category = searchParams.get("category");
-    if (category) {
-      const lowerCat = category.toLowerCase();
-      if (lowerCat.includes("gourmet")) setSelectedCategory("Gourmet");
-      else if (lowerCat.includes("baking")) setSelectedCategory("Baking");
-      else if (lowerCat.includes("vegan") || lowerCat.includes("plant")) setSelectedCategory("Vegan");
-      else if (lowerCat.includes("healthy")) setSelectedCategory("Healthy");
-      else if (lowerCat.includes("dessert") || lowerCat.includes("treat")) setSelectedCategory("Desserts");
-      else if (lowerCat.includes("quick") || lowerCat.includes("easy")) setSelectedCategory("Quick & Easy");
-      else setSelectedCategory("All");
-    }
-  }, [searchParams]);
-
   // Combined local & database recipes
   const allCombinedRecipes = useMemo(() => {
     return [...dbRecipes, ...ALL_RECIPES];
   }, [dbRecipes]);
 
-  // Filtering Logic
+  // Filtering & Sorting Logic
   const filteredRecipes = useMemo(() => {
-    return allCombinedRecipes.filter((recipe) => {
+    // 1. Filter
+    const filtered = allCombinedRecipes.filter((recipe) => {
       const matchesCategory =
         selectedCategory === "All" || recipe.category === selectedCategory;
       const matchesSearch =
@@ -148,11 +166,43 @@ function RecipesPageContent() {
         recipe.category.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [searchQuery, selectedCategory, allCombinedRecipes]);
+
+    // 2. Sort
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "rating") {
+        const ratingA = a.rating || 0;
+        const ratingB = b.rating || 0;
+        return ratingB - ratingA;
+      }
+      if (sortBy === "cookTime") {
+        const parseCookTime = (timeStr) => {
+          if (!timeStr) return 9999;
+          const lower = timeStr.toLowerCase();
+          const num = parseFloat(lower) || 0;
+          if (lower.includes("hour") || lower.includes("hr")) {
+            return num * 60;
+          }
+          return num;
+        };
+        return parseCookTime(a.cookTime) - parseCookTime(b.cookTime);
+      }
+      // Default: 'latest'
+      const getSortTime = (r) => {
+        if (r.createdAt) return new Date(r.createdAt).getTime();
+        if (r.id && typeof r.id === "string" && r.id.startsWith("r")) {
+          const num = parseInt(r.id.slice(1), 10) || 0;
+          return num * 10000;
+        }
+        return 0;
+      };
+      return getSortTime(b) - getSortTime(a);
+    });
+  }, [searchQuery, selectedCategory, allCombinedRecipes, sortBy]);
 
   const handleResetFilters = () => {
     setSearchQuery("");
     setSelectedCategory("All");
+    setSortBy("latest");
   };
 
   return (
@@ -201,9 +251,30 @@ function RecipesPageContent() {
               )}
             </div>
 
-            {/* Total Results */}
-            <div className="text-xs font-semibold text-neutral-500 dark:text-zinc-400 font-sans bg-neutral-100 dark:bg-zinc-900/60 border border-neutral-200/30 dark:border-zinc-800/40 px-3.5 py-1.5 rounded-full shrink-0 select-none">
-              Showing {filteredRecipes.length} {filteredRecipes.length === 1 ? "recipe" : "recipes"}
+            <div className="flex items-center gap-3 w-full md:w-auto shrink-0 select-none justify-between md:justify-end">
+              {/* Sort By Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-neutral-450 dark:text-zinc-550 uppercase tracking-wider font-sans whitespace-nowrap">
+                  Sort By:
+                </span>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="appearance-none bg-white dark:bg-zinc-900 border border-neutral-200 dark:border-zinc-850 rounded-full pl-4 pr-9 py-2 text-xs font-bold text-neutral-700 dark:text-zinc-300 focus:outline-none focus:border-orange-500 transition-all font-sans cursor-pointer shadow-sm select-none"
+                  >
+                    <option value="latest">Newest</option>
+                    <option value="rating">Highest Rated</option>
+                    <option value="cookTime">Prep Time</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-450 dark:text-zinc-500 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Total Results */}
+              <div className="text-xs font-semibold text-neutral-500 dark:text-zinc-400 font-sans bg-neutral-100 dark:bg-zinc-900/60 border border-neutral-200/30 dark:border-zinc-800/40 px-3.5 py-2 rounded-full shrink-0">
+                {filteredRecipes.length} {filteredRecipes.length === 1 ? "recipe" : "recipes"}
+              </div>
             </div>
           </div>
 
@@ -268,7 +339,7 @@ function RecipesPageContent() {
                   No Recipes Found
                 </h3>
                 <p className="text-sm text-neutral-500 dark:text-zinc-400 mt-2 font-sans leading-relaxed">
-                  We couldn't find any recipes matching your query for <span className="font-bold text-orange-500">"{searchQuery || selectedCategory}"</span>. Try adjusting your spelling or reset the filter settings.
+                  We couldn&apos;t find any recipes matching your query for <span className="font-bold text-orange-500">&ldquo;{searchQuery || selectedCategory}&rdquo;</span>. Try adjusting your spelling or reset the filter settings.
                 </p>
                 <button
                   onClick={handleResetFilters}

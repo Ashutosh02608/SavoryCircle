@@ -752,29 +752,35 @@ export default function RecipeDetailPage({ params }) {
     const updatedReviews = [newComment, ...reviews];
     setReviews(updatedReviews);
 
+    const totalRating = updatedReviews.reduce((sum, rev) => sum + rev.rating, 0);
+    const avgRating = Number((totalRating / updatedReviews.length).toFixed(1));
+
     const isMockRecipe = id.startsWith("r") && MOCK_RECIPE_DETAILS[id];
     if (!isMockRecipe) {
       try {
         const docRef = doc(db, "recipes", id);
-        const totalRating = updatedReviews.reduce((sum, rev) => sum + rev.rating, 0);
-        const avgRating = Number((totalRating / updatedReviews.length).toFixed(1));
 
         await updateDoc(docRef, {
           reviews: updatedReviews,
           rating: avgRating,
           reviewsCount: updatedReviews.length
         });
-
-        setRecipe(prev => ({
-          ...prev,
-          reviews: updatedReviews,
-          rating: avgRating,
-          reviewsCount: updatedReviews.length
-        }));
       } catch (err) {
         console.error("Error saving review to Firestore:", err);
       }
+    } else {
+      // Persist in-memory during local session
+      MOCK_RECIPE_DETAILS[id].reviews = updatedReviews;
+      MOCK_RECIPE_DETAILS[id].rating = avgRating;
+      MOCK_RECIPE_DETAILS[id].reviewsCount = updatedReviews.length;
     }
+
+    setRecipe(prev => ({
+      ...prev,
+      reviews: updatedReviews,
+      rating: avgRating,
+      reviewsCount: updatedReviews.length
+    }));
 
     setNewReviewName(user?.displayName || user?.email.split("@")[0] || "");
     setNewReviewText("");
@@ -1020,82 +1026,105 @@ export default function RecipeDetailPage({ params }) {
               </p>
 
               {/* Leave a review form */}
-              <form
-                onSubmit={handleReviewSubmit}
-                className="mb-8 p-4 rounded-2xl bg-neutral-50 dark:bg-zinc-850/40 border border-neutral-250/20 dark:border-zinc-800/80 space-y-4"
-              >
-                <h4 className="font-bold text-xs text-neutral-750 dark:text-zinc-300 uppercase tracking-wider font-sans">
-                  Write a Review
-                </h4>
-                
-                {/* Star Selector */}
-                <div className="flex items-center gap-1.5 select-none">
-                  <span className="text-xs text-neutral-450 dark:text-zinc-500 mr-2 font-sans">Rating:</span>
-                  {[1, 2, 3, 4, 5].map((val) => {
-                    const isStarred = hoverRating !== null ? val <= hoverRating : val <= newReviewRating;
-                    return (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setNewReviewRating(val)}
-                        onMouseEnter={() => setHoverRating(val)}
-                        onMouseLeave={() => setHoverRating(null)}
-                        className="text-amber-400 focus:outline-none cursor-pointer transform hover:scale-110 active:scale-95 transition-all"
-                      >
-                        <Star
-                          className={`w-5 h-5 ${
-                            isStarred ? "fill-amber-400" : "text-neutral-300 dark:text-zinc-700"
-                          }`}
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="grid grid-cols-1 gap-3">
-                  <input
-                    type="text"
-                    required
-                    placeholder="Your name"
-                    value={newReviewName}
-                    onChange={(e) => setNewReviewName(e.target.value)}
-                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-neutral-250/40 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-neutral-800 dark:text-zinc-100 focus:border-orange-500 focus:outline-none transition-colors font-sans"
-                  />
-                  <textarea
-                    required
-                    placeholder="Share your experience (did you swap ingredients, adjust heat etc.?)"
-                    value={newReviewText}
-                    rows={3}
-                    onChange={(e) => setNewReviewText(e.target.value)}
-                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-neutral-250/40 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-neutral-800 dark:text-zinc-100 focus:border-orange-500 focus:outline-none transition-colors resize-none font-sans"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <CustomButton
-                    type="submit"
-                    variant="primary"
-                    className="py-2.5 px-5 text-xs rounded-xl cursor-pointer font-sans"
-                  >
-                    Submit Review
-                  </CustomButton>
+              {user ? (
+                <form
+                  id="review-form"
+                  onSubmit={handleReviewSubmit}
+                  className="mb-8 p-4 rounded-2xl bg-neutral-50 dark:bg-zinc-850/40 border border-neutral-250/20 dark:border-zinc-800/80 space-y-4"
+                >
+                  <h4 className="font-bold text-xs text-neutral-750 dark:text-zinc-300 uppercase tracking-wider font-sans">
+                    Write a Review
+                  </h4>
                   
-                  {/* Toast animation */}
-                  <AnimatePresence>
-                    {formSubmitted && (
-                      <motion.span
-                        initial={{ opacity: 0, x: 10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0 }}
-                        className="text-xs font-semibold text-green-500 flex items-center gap-1 font-sans"
-                      >
-                        <Check className="w-3.5 h-3.5 animate-bounce" />
-                        Review posted!
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
+                  {/* Star Selector */}
+                  <div className="flex items-center gap-1.5 select-none">
+                    <span className="text-xs text-neutral-450 dark:text-zinc-550 mr-2 font-sans">Rating:</span>
+                    {[1, 2, 3, 4, 5].map((val) => {
+                      const isStarred = hoverRating !== null ? val <= hoverRating : val <= newReviewRating;
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setNewReviewRating(val)}
+                          onMouseEnter={() => setHoverRating(val)}
+                          onMouseLeave={() => setHoverRating(null)}
+                          className="text-amber-400 focus:outline-none cursor-pointer transform hover:scale-110 active:scale-95 transition-all"
+                        >
+                          <Star
+                            className={`w-5 h-5 ${
+                              isStarred ? "text-amber-500 fill-amber-500" : "text-neutral-200 dark:text-zinc-800"
+                            }`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Your name"
+                      value={newReviewName}
+                      onChange={(e) => setNewReviewName(e.target.value)}
+                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-neutral-250/40 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-neutral-800 dark:text-zinc-100 focus:border-orange-500 focus:outline-none transition-colors font-sans"
+                    />
+                    <textarea
+                      required
+                      placeholder="Share your experience (did you swap ingredients, adjust heat etc.?)"
+                      value={newReviewText}
+                      rows={3}
+                      onChange={(e) => setNewReviewText(e.target.value)}
+                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-neutral-250/40 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-neutral-800 dark:text-zinc-100 focus:border-orange-500 focus:outline-none transition-colors resize-none font-sans"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <CustomButton
+                      type="submit"
+                      variant="primary"
+                      className="py-2.5 px-5 text-xs rounded-xl cursor-pointer font-sans"
+                    >
+                      Submit Review
+                    </CustomButton>
+                    
+                    {/* Toast animation */}
+                    <AnimatePresence>
+                      {formSubmitted && (
+                        <motion.span
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="text-xs font-semibold text-green-500 flex items-center gap-1 font-sans"
+                        >
+                          <Check className="w-3.5 h-3.5 animate-bounce" />
+                          Review posted!
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </form>
+              ) : (
+                <div id="review-form" className="mb-8 p-6 rounded-2xl bg-orange-500/5 border border-orange-500/10 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 mx-auto">
+                    <Star className="w-6 h-6 fill-current" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-bold text-sm text-neutral-800 dark:text-zinc-200 font-sans">
+                      Want to rate this recipe?
+                    </h4>
+                    <p className="text-xs text-neutral-500 dark:text-zinc-400 font-sans max-w-sm mx-auto">
+                      Sign in to your SavoryCircle account to leave a review and submit your rating.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => router.push("/login")}
+                    className="px-5 py-2.5 rounded-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer font-sans"
+                  >
+                    Sign In to Rate
+                  </button>
                 </div>
-              </form>
+              )}
 
               {/* Reviews List */}
               <div className="space-y-4">
@@ -1201,8 +1230,18 @@ export default function RecipeDetailPage({ params }) {
                   {recipe.rating}
                 </span>
                 <span className="text-xs text-neutral-400 dark:text-zinc-500 font-sans">
-                  ({recipe.reviewsCount} reviews)
+                  ({recipe.reviewsCount || 0} reviews)
                 </span>
+                <span className="mx-1.5 text-neutral-300 dark:text-zinc-800 hidden sm:inline">•</span>
+                <button
+                  onClick={() => {
+                    const el = document.getElementById("review-form");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="text-xs font-bold text-orange-500 hover:text-orange-600 transition-colors font-sans cursor-pointer underline decoration-dashed underline-offset-4"
+                >
+                  Rate this recipe
+                </button>
               </div>
             </div>
 

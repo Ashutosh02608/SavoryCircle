@@ -5,7 +5,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { UtensilsCrossed, User, LogOut, Plus } from "lucide-react";
+import { UtensilsCrossed, User, LogOut, Plus, Bookmark } from "lucide-react";
 
 export const FloatingNav = ({ className }) => {
   const { scrollYProgress } = useScroll();
@@ -163,6 +163,15 @@ export const FloatingNav = ({ className }) => {
                         >
                           <User className="w-4 h-4 text-neutral-400 dark:text-zinc-500" />
                           <span>My Profile</span>
+                        </Link>
+
+                        <Link
+                          href="/profile?tab=saved-recipes"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold text-neutral-700 dark:text-zinc-300 hover:bg-neutral-50 dark:hover:bg-zinc-800/60 transition-colors duration-150 font-sans"
+                        >
+                          <Bookmark className="w-4 h-4 text-neutral-400 dark:text-zinc-500" />
+                          <span>Saved Recipes</span>
                         </Link>
 
                         <Link

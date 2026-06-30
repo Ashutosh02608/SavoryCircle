@@ -214,16 +214,15 @@ export default function Home() {
               />
             </CanvasCard>
 
-            {/* Grid 6: Tip of the week (Double width) */}
             <BentoGridItem
-              className="md:col-span-2 bg-gradient-to-br from-amber-500/5 to-yellow-500/5 md:h-[13.5rem]"
+              className="md:col-span-2 bg-gradient-to-br from-orange-500/8 via-amber-500/4 to-transparent md:h-[16rem]"
               title="Culinary Tip of the Week"
               description="Learn basic cooking techniques that level up any dish."
               icon={<Flame className="w-6 h-6" />}
             >
-              <div className="flex flex-col md:flex-row gap-6 items-center mt-4">
-                <div className="p-4 rounded-2xl bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0">
-                  <Flame className="w-8 h-8" />
+              <div className="flex flex-col md:flex-row gap-6 items-center mt-3">
+                <div className="p-3.5 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0">
+                  <Flame className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
                   <h4 className="font-bold text-neutral-900 dark:text-zinc-100">

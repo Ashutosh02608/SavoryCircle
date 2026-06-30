@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { FloatingNav } from "@/components/ui/floating-navbar";
 import { NAV_ITEMS } from "@/lib/constants";
@@ -164,18 +164,28 @@ const STORIES_LIST = [
 export default function StoriesPage() {
   const [selectedStory, setSelectedStory] = useState(null);
 
+  // Synchronize modal scroll-lock side effects
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (selectedStory) {
+        document.body.style.overflow = "hidden";
+      } else {
+        document.body.style.overflow = "";
+      }
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        document.body.style.overflow = "";
+      }
+    };
+  }, [selectedStory]);
+
   const openStoryModal = (story) => {
     setSelectedStory(story);
-    if (typeof window !== "undefined") {
-      document.body.style.overflow = "hidden"; // Disable background scrolling
-    }
   };
 
   const closeStoryModal = () => {
     setSelectedStory(null);
-    if (typeof window !== "undefined") {
-      document.body.style.overflow = ""; // Re-enable background scrolling
-    }
   };
 
   return (
@@ -336,7 +346,7 @@ export default function StoriesPage() {
                 {/* Quote block */}
                 {selectedStory.quote && (
                   <div className="p-4 rounded-2xl bg-orange-500/5 border border-orange-500/10 italic text-sm text-neutral-700 dark:text-zinc-300 text-center font-sans font-medium">
-                    "{selectedStory.quote}"
+                    &ldquo;{selectedStory.quote}&rdquo;
                   </div>
                 )}
 

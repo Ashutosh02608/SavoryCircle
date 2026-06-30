@@ -177,7 +177,7 @@ export default function CreatorsPage() {
 
                   {/* Bio */}
                   <p className="text-xs text-neutral-500 dark:text-zinc-400 leading-relaxed font-sans flex-1">
-                    "{creator.bio}"
+                    &ldquo;{creator.bio}&rdquo;
                   </p>
 
                   {/* Stats Grid */}
